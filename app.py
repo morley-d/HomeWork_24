@@ -1,7 +1,11 @@
 "Head file application"
 import os
 
-from flask import Flask
+from flask import Flask, request
+from werkzeug.exceptions import BadRequest
+
+from exceptions import NotBoolConvertedType, NotIntConvertedType
+from utils import build_query
 
 app = Flask(__name__)
 
@@ -14,4 +18,32 @@ def perform_query():
     # нужно взять код из предыдущего ДЗ
     # добавить команду regex
     # добавить типизацию в проект, чтобы проходила утилиту mypy app.py
-    return app.response_class('', content_type="text/plain")
+    data = request.json
+    try:
+        file_name = data['file_name']
+        cmd1 = data['cmd1']
+        cmd2 = data['cmd2']
+        value1 = data['value1']
+        value2 = data['value2']
+    except:
+        return BadRequest(description=f"Missing one or more arguments")
+
+    path_file = os.path.join(DATA_DIR, file_name)
+    if not os.path.exists(path_file):
+        raise BadRequest(description=f"File {file_name} was not found")
+
+    with open(path_file) as file:
+        try:
+            result = build_query(file, cmd1, value1)
+            result = build_query(result, cmd2, value2)
+            result = '\n'.join(result)
+        except NotBoolConvertedType as e:
+            return 'Method "sort" require a boolean parametr', 400
+        except NotIntConvertedType as e:
+            return 'Methods "limit" and "map" require a numeric parametr', 400
+
+    return app.response_class(result, status='200 Completed successfully', content_type="text/plain")
+
+
+if __name__ == '__main__':
+    app.run(port=7777)
